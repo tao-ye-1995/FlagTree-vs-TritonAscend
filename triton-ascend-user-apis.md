@@ -51,7 +51,7 @@
 `buffer`/`buffer_type`/`address_space` + `alloc`/`to_buffer`/`to_tensor`/`subview`([core.py](../triton-ascend/python/triton/extension/buffer/language/core.py))。
 
 ### `tla`(⚠️ 文档外,Triton-Ascend 独有)
-`@tla.jit` 装饰器;`alloc_buffer/alloc/buffer/vector`;`view/subview/reshape`;DMA 搬运族 `load_gm_to_ub`/`store_ub_to_gm`/`copy_l1_to_l0`/`store_l0c_to_gm`… 及参数类/枚举;`tla.simd.*`(~60 向量指令);`tla.cube.mmad`;`tla.scope.simd/cube`;`tla.sync.*`;`where`/`compensated_rstd`/`device_print`。详见 [flagtree-vs-triton-ascend.md](flagtree-vs-triton-ascend.md) §2.4。
+`@tla.jit` 装饰器;`alloc_buffer/alloc/buffer/vector`;`view/subview/reshape`;DMA 搬运族 `load_gm_to_ub`/`store_ub_to_gm`/`copy_l1_to_l0`/`store_l0c_to_gm`… 及参数类/枚举;`tla.simd.*`(~60 向量指令);`tla.cube.mmad`;`tla.scope.simd/cube`;`tla.sync.*`;`where`/`compensated_rstd`/`device_print`。详见 [triton-ascend-vs-flagtree.md](triton-ascend-vs-flagtree.md) §2.4。
 
 ---
 
