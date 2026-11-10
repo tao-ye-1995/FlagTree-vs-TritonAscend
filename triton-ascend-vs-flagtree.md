@@ -90,6 +90,8 @@ FlagTree/third_party/
 
 > 源码:[triton-ascend extension/__init__.py](../triton-ascend/third_party/ascend/language/cann/extension/__init__.py) 与 [FlagTree extension/__init__.py](../FlagTree/third_party/ascend/language/cann/extension/__init__.py)。
 
+> **架构限制(两仓一致)**:并非所有 `al.*` 都三代通用。经逐个核查,**`fixpipe` / `copy` / `copy_from_ub_to_l1` 是 950(register-based,`Ascend910_95`/`Ascend960`)专属**——A2/A3 调用会 `RuntimeError`(这些是 L0C/L1 register-based 片上搬运);**`cast` 的 fp8/fp64 转换也仅 950**(A2/A3 `ValueError`),基础 dtype 全支持。其余 `dot`/`conv1d`/`conv2d`/`sync_block_*`/`sub_vec_*`/`sort`/`flip`/`get_element`/`insert_slice`/`extract_slice`/`index_put`/`gather_out_to_ub`/`scatter_ub_to_out`/`index_select_simd` 等**无架构门,A2/A3/950 全支持**。逐行见对照表 [表 1.1](user-apis-flagtree-vs-triton-ascend.md)。
+
 ### 2.3 `cann.libdevice` 差异(实现策略不同)
 
 | | Triton-Ascend(基准) | FlagTree |
@@ -105,6 +107,8 @@ libdevice.abs  = math.abs;   libdevice.fma = math.fma;   libdevice.erf  = math.e
 ```
 
 > 含义:Triton-Ascend 把 libdevice 作为独立全集维护;FlagTree 更依赖 upstream 数学实现 + 后端 lowering,接口暴露面更小。两边都 export `reciprocal/log1p/relu/isinf/tan/atan/tanh/ilogb/ldexp/pow/isnan` 等核心 extern。
+
+> **架构维度**:libdevice 全部函数在 **A2/A3/950 硬件均可用**,无「某代禁用」。差异在于:大量带舍入/类型转换/特殊函数/位运算的函数带 `if SIMT: static_assert(False)` 守卫——**SIMT 是「950 + 环境开关 `TRITON_ENABLE_LIBDEVICE_SIMT`」才进入的模式,非芯片限制**,普通模式三代全支持;另有 `mulhi/hadd/rhadd` 在 950 走不同实现、`exp/sqrt/reciprocal` 等的 fp32 在 950/A6 走优化路径。两仓机制一致(FlagTree 用 `triton_enable_libdevice_simt() and is_compile_on_910_95` 作同样守卫)。
 
 #### "rebind" 到底是什么含义
 

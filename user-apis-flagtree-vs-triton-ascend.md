@@ -3,7 +3,9 @@
 > 仓库:`/workspace/triton-ascend`(TA,Triton 3.6.0) · `/workspace/FlagTree`(FT,Triton 3.5.1)。
 > 概要见 [triton-ascend-user-apis.md](triton-ascend-user-apis.md) / [flagtree-user-apis.md](flagtree-user-apis.md) / [triton-ascend-vs-flagtree.md](triton-ascend-vs-flagtree.md)。
 >
-> 硬件列说明:**A2/A3** = Atlas A2 / A3(910B / 910C);**950** = Ascend 950PR&950DT(910_95 / A5 register-based)。
+> 硬件列说明:**A2/A3** = Atlas A2 / A3(`Ascend910B`/`910_93`,LEGACY 代;代码里 `_is_a3_target`,A2/A3 共享 libdevice ABI);**950** = Ascend 950PR&950DT(`Ascend910_95`/`Ascend950`,GEN5 / register-based;代码里 `_is_a5_target` / `is_register_based_arch`)。
+> **「仅 950」= A2/A3 调用会 `RuntimeError`/编译期报错**(register-based 专属的 L0C/L1 片上搬运等)。标 **A2/A3 · 950** = 三者硬件均支持。
+> **SIMT 注记**:libdevice 多数函数带 `if SIMT: unsupported` 守卫,但 **SIMT 是「950 + 环境开关 `TRITON_ENABLE_LIBDEVICE_SIMT`」才进入的模式,不是某代芯片限制**;默认(非 SIMT)下这些函数 A2/A3/950 全支持,故硬件列仍记 A2/A3 · 950,SIMT 限制在功能列注明。
 > 支持列:✅ 支持 · ❌ 不暴露 · ⚠️ 以 rebind/间接方式提供。
 > 范围:**表 1** 聚焦昇腾专属扩展 API(`cann.extension` / `cann.libdevice` / `tla` / `extension.buffer.language` / `kernels`);**表 2** 源码路径对照;**表 3** 通用 `tl.*`(两仓一致,逐一列出);**表 4** FlagTree TLE 扩展原语 → Triton-Ascend 对应情况。
 
@@ -18,9 +20,9 @@
 | `al.dot` | A2/A3 · 950 | ✅ | ❌ | cube 矩阵乘 `D=A*B`,支持 ND / fractal(zN)layout |
 | `al.conv1d` | A2/A3 · 950 | ✅ | ✅ | 1D 卷积 builtin |
 | `al.conv2d` | A2/A3 · 950 | ✅ | ❌ | 2D 卷积 builtin |
-| `al.fixpipe` | A2/A3 · 950 | ✅ | ✅ | L0C→UB 固定流水搬运(含量化/ReLU 后处理) |
-| `al.copy` | A2/A3 · 950 | ✅ | ✅ | 片上内存间拷贝 |
-| `al.copy_from_ub_to_l1` | A2/A3 · 950 | ✅ | ✅ | UB→L1 拷贝 |
+| `al.fixpipe` | **仅 950** | ✅ | ✅ | L0C→UB 固定流水搬运(含量化/ReLU 后处理)。非 register-based 架构 `RuntimeError` |
+| `al.copy` | **仅 950** | ✅ | ✅ | 片上内存间拷贝(L0C/L1 register-based)。A2/A3 调用 `RuntimeError` |
+| `al.copy_from_ub_to_l1` | **仅 950** | ✅ | ✅ | UB→L1 拷贝(已弃用,改用 `copy`)。A2/A3 调用 `RuntimeError` |
 | `al.scope` | A2/A3 · 950 | ✅ | ✅ | 核模式作用域(vector/cube) |
 | `al.parallel` | A2/A3 · 950 | ✅ | ✅ | 并行循环标注 |
 | `al.compile_hint` | A2/A3 · 950 | ✅ | ✅ | 编译提示 |
@@ -36,7 +38,7 @@
 | `al.get_element` | A2/A3 · 950 | ✅ | ✅ | 取标量元素 |
 | `al.sort` | A2/A3 · 950 | ✅ | ✅ | 片上排序 |
 | `al.flip` | A2/A3 · 950 | ✅ | ✅ | 维度翻转 |
-| `al.cast` | A2/A3 · 950 | ✅ | ✅ | 显式类型转换 |
+| `al.cast` | A2/A3 · 950(fp8/fp64 仅 950) | ✅ | ✅ | 显式类型转换。基础 dtype 全支持;**fp8/fp64 转换仅 950**(A2/A3 `ValueError`),saturate 路径按架构不同 |
 | `al.index_put` | A2/A3 · 950 | ✅ | ✅ | 索引写入 |
 | `al.gather_out_to_ub` | A2/A3 · 950 | ✅ | ✅ | GM→UB gather |
 | `al.scatter_ub_to_out` | A2/A3 · 950 | ✅ | ✅ | UB→GM scatter |
@@ -59,6 +61,8 @@
 
 > TA **全量自实现**(~180);FT **精简**:39 个自实现 + ~17 个 rebind 到 upstream `math.*` + 4 个 rebind 到 `cann.extension`。
 > FT「⚠️」= **rebind**:FlagTree 的 `libdevice.py` 无该 `def`,而在 [cann/__init__.py](../FlagTree/third_party/ascend/language/cann/__init__.py) 用 `libdevice.xxx = math.xxx`(或 `= extension.xxx`)把别处已有实现贴到该名字上。**调用方式与结果对用户无感知,但底层实现来源与 TA 的同名 extern 不同**,边界/精度/特殊 dtype 下可能有细微差异(`atan2` 还受 `triton_enable_libdevice_simt()` 开关控制)。完整说明见 [triton-ascend-vs-flagtree.md](triton-ascend-vs-flagtree.md) §2.3「rebind 到底是什么含义」。
+>
+> **硬件/SIMT 说明(逐个核查结论)**:libdevice 全部函数在 **A2/A3/950 硬件均可用**——没有任何一个是「某代芯片禁用」。按架构分三种内部行为:(a) **大量函数带 `if SIMT: static_assert(False)` 守卫**(带舍入的 `add_r*/mul_r*/sqrt_r*/rcp_r*/fma_r*`、类型转换 `float2*/`*`2float` 族、特殊函数 `erfc/j0/jn/normcdf` 等、位运算 `clz/popc/brev/mul24` 等)→ 仅 **SIMT 模式**(950+环境开关)下不可用,**普通模式 A2/A3/950 全支持**;(b) `mulhi`/`hadd`/`rhadd` 在 950 走不同实现(两路都可用);(c) `reciprocal`/`exp`/`sqrt` 等的 **fp32 在 950/A6 走优化路径**(非 fp32 与其他架构仍走通用路径)。因此下表硬件列统一记 **A2/A3 · 950**,SIMT 限制见本注。
 
 | 接口名 | 适用硬件 | TA 支持 | FT 支持 | 功能 |
 |---|---|---|---|---|
@@ -96,6 +100,7 @@
 ### 1.5 `tla`(TLA 显存层级范式,TA 独有)
 
 > FT **完全无此命名空间**,整表 FT 列均为 ❌。
+> **架构说明**:tla 的 Python 层**无硬架构门**,原语在 A2/A3/950 均可发 IR;真正的架构约束落在 IR verifier/lowering 层——最典型是 **fixpipe 的 `dst=UB` 与 `NZ2DN` 变体被限定为 `isAscend950`**(见 [tla/compiler.py](../triton-ascend/third_party/ascend/language/tla/compiler.py) 注释)。即「用 L0C→UB fixpipe 做片上回写」是 950 专属能力,A2/A3 走 L0C→GM/L1 路径。
 
 | 接口名 | 适用硬件 | TA 支持 | FT 支持 | 功能 |
 |---|---|---|---|---|
@@ -108,7 +113,7 @@
 | `tla.load_gm_to_ub` / `store_ub_to_gm` | A2/A3 · 950 | ✅ | ❌ | GM↔UB DMA |
 | `tla.load_gm_to_l1` / `copy_ub_to_l1` / `copy_l1_to_ub` | A2/A3 · 950 | ✅ | ❌ | L1 相关 DMA |
 | `tla.copy_l1_to_l0` / `copy_l1_to_bt` / `copy_l1_to_fb` | A2/A3 · 950 | ✅ | ❌ | L1→L0/BT/FB DMA |
-| `tla.store_l0c_to_gm` / `copy_l0c_to_ub` / `copy_l0c_to_l1` | A2/A3 · 950 | ✅ | ❌ | L0C 输出 DMA(含 fixpipe) |
+| `tla.store_l0c_to_gm` / `copy_l0c_to_ub` / `copy_l0c_to_l1` | A2/A3 · 950(部分路径仅 950) | ✅ | ❌ | L0C 输出 DMA(含 fixpipe)。**`dst=UB` / `NZ2DN` fixpipe 由 `FixpipeOp::verify` 限制为 `isAscend950`**(IR verifier 层) |
 | `tla.set_ctrl` | A2/A3 · 950 | ✅ | ❌ | 设置控制寄存器 |
 | `tla.simd.*`(~60) | A2/A3 · 950 | ✅ | ❌ | SIMD 向量指令(vadd/vmul/vfma/vexp/vreduce_sum/vcmp/vsel…) |
 | `tla.cube.mmad` | A2/A3 · 950 | ✅ | ❌ | cube 核矩阵乘(L1/L0C 路由) |
@@ -316,6 +321,7 @@
 > **TLE(`triton.experimental.tle`)为 FlagTree 独有**(源码 [experimental/tle/](../FlagTree/python/triton/experimental/tle/)),是跨 GPU/NPU 的显式内存/流水语言,含完整昇腾实现(`dsa.ascend`)。
 > 本表看每个 TLE 原语在 **Triton-Ascend** 里有没有「相同 API(仅接口层差异)」或「类似 API」。
 > 「TA 对应」列:**相同**=语义一致仅命名/签名差异 · **类似**=概念对应但范式/粒度不同 · **无**=TA 无对应物。
+> **架构说明**:TLE `dsa.ascend` 层的 Python 代码**无硬架构门**,原语在 A2/A3/950 均可发 IR,架构约束在 lowering/verifier 层(与 tla 同机制)。因此「适用硬件」列对 TLE 原语统一记 A2/A3 · 950;但凡涉及 **L0C→UB fixpipe、register-based 片上搬运**(如对应 `al.copy`/`al.fixpipe` 者)的实际可用性受 **950 专属**约束,与 TA 侧一致(见表 1.1 与 1.5 注)。
 
 | TLE 接口名(FT) | 所属层 | 适用硬件 | TA 对应 | TA 对应 API | 功能 |
 |---|---|---|---|---|---|
@@ -377,4 +383,5 @@
 - **FT 独有**:`al.custom_object_semantic`;**整套 TLE 扩展原语**(`triton.experimental.tle`,含 `dsa.ascend` 的流水调度器与分布式通信族,见表 4)。
 - **共有且一致**:绝大多数 `al.*` builtin、`extension.buffer.language.*`、`kernels.gather_2d_simd`、`do_bench_npu`、通用 `tl.*`。
 - **功能可用但实现不同**:FT 的部分 `libdevice` 函数 rebind 到 upstream `math.*`(表 1.2 ⚠️ 行)。
+- **架构限制(两仓一致)**:`al.fixpipe`/`al.copy`/`al.copy_from_ub_to_l1`、`al.cast` 的 fp8/fp64、`tla` 的 L0C→UB/NZ2DN fixpipe 为 **950 专属**;libdevice 全量在 A2/A3/950 硬件可用,SIMT 守卫是「950+环境开关」模式限制。见各表「适用硬件」列。
 - **TLE ↔ tla**:二者是 FlagTree / Triton-Ascend 各自的显式内存编程层,多数原语「相同或类似」,但 TLE 额外带流水调度器与分布式能力(表 4)。

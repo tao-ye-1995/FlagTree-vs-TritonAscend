@@ -47,6 +47,8 @@
 - [math_ops.py](../triton-ascend/third_party/ascend/language/cann/extension/math_ops.py):`atan2`/`isfinited`/`finitef`。
 - affine(MLIR 透传):`affine_map`/`affine_expr`/…
 
+> **架构限制**:`fixpipe`/`copy`/`copy_from_ub_to_l1` 为 **950(register-based)专属**,A2/A3 调用 `RuntimeError`;`cast` 的 fp8/fp64 转换仅 950。其余 builtin A2/A3/950 全支持。详见对照表 [表 1.1](user-apis-flagtree-vs-triton-ascend.md)。
+
 ### `extension.buffer.language`(通用 buffer)
 `buffer`/`buffer_type`/`address_space` + `alloc`/`to_buffer`/`to_tensor`/`subview`([core.py](../triton-ascend/python/triton/extension/buffer/language/core.py))。
 

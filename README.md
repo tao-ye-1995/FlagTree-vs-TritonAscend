@@ -28,6 +28,7 @@
 - **FT 独有**:`al.custom_object_semantic`;**整套 TLE 扩展原语**(`triton.experimental.tle`,含 `dsa.ascend` 的流水调度器、分布式通信族;对应 TA 的 `tla`,逐项见对照表表 4)。
 - **共有且一致**:绝大多数 `al.*` builtin、`extension.buffer.language.*`、`kernels.gather_2d_simd`、`do_bench_npu`、通用 `tl.*`。
 - **功能可用但实现不同**:FT 部分 `libdevice` 函数 rebind 到 upstream `triton.language.math.*`,而非 cann 自实现。
+- **架构限制(两仓一致)**:`al.fixpipe`/`al.copy`/`al.copy_from_ub_to_l1` 及 `cast` 的 fp8/fp64 为 **950(register-based)专属**,A2/A3 调用报错;`tla` 的 L0C→UB / NZ2DN fixpipe 亦 950 专属。libdevice 全量函数 A2/A3/950 硬件均可用,其 SIMT 守卫是「950+环境开关」的模式限制而非芯片限制。逐行准确值见对照表「适用硬件」列。
 - **共性**:两仓最终都经 **bishengir-compile / AscendNPU-IR** 完成 lowering;FlagTree 侧 AscendNPU-IR 为 in-tree 完整,Triton-Ascend 侧为 git submodule(当前 workspace 未 checkout)。
 
-> 说明:硬件列中 **A2/A3** = Atlas A2 / A3(910B / 910C),**950** = Ascend 950PR&950DT(910_95 / A5 register-based)。
+> 说明:硬件列中 **A2/A3** = Atlas A2 / A3(`Ascend910B`/`910_93`,LEGACY 代),**950** = Ascend 950PR&950DT(`Ascend910_95`/`Ascend950`,GEN5 / register-based)。**「仅 950」= A2/A3 调用会报错**。

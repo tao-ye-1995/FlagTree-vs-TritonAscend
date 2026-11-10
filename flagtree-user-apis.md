@@ -52,6 +52,8 @@ FlagTree 是 **多后端统一框架**(`third_party/` 下有 amd / nvidia / enfl
 - **独有** `custom_object_semantic`(自定义 op 对象语义变体)。
 - 共有:`copy`/`copy_from_ub_to_l1`/`fixpipe`/`conv1d`/`scope`/`parallel`/`compile_hint`/`multibuffer`/`sync_block_*`/`sub_vec_id|num`/`insert_slice`/`extract_slice`/`get_element`/`sort`/`flip`/`cast`/`index_put`/`gather_out_to_ub`/`scatter_ub_to_out`/`index_select_simd`/`custom`/`custom_semantic`/`register_custom_op`/`atan2`/`isfinited`/`finitef`/ affine 系列 / 枚举。
 
+> **架构限制(与 TA 一致)**:`fixpipe`/`copy`/`copy_from_ub_to_l1` 为 **910_95(950)专属**,A2/A3 调用 `RuntimeError`(FlagTree 用 `builder.is_910_95()` 守卫,见 [extension/semantic.py](../FlagTree/third_party/ascend/language/cann/extension/semantic.py)/[core.py](../FlagTree/third_party/ascend/language/cann/extension/core.py));`cast` 的 fp8/fp64 仅 950。libdevice 的 SIMT 守卫同 TA。详见对照表 [表 1.1](user-apis-flagtree-vs-triton-ascend.md)。
+
 ### `extension.buffer.language`(通用 buffer)
 `buffer`/`buffer_type`/`address_space` + `alloc`/`to_buffer`/`to_tensor`/`subview`。源码与 Triton-Ascend **逐函数一致**,只是放在 [spec/ascend/extension/buffer/language/](../FlagTree/python/triton/spec/ascend/extension/buffer/language/)(多后端命名空间分发,`spec_path` 机制)。
 
