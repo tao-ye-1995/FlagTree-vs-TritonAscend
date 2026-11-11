@@ -58,66 +58,112 @@
 
 ## 3. 逐原语首见与先后对照
 
-覆盖 [API 对照表 4](user-apis-flagtree-vs-triton-ascend.md#表-4--flagtree-tle-扩展原语--triton-ascend-对应情况) 原有全部 33 个“相同/类似”关系行（合并行中的符号全部列名）；workspace 与 int4 专项核查后改为无直接对应。下表编号保持原始覆盖范围，不把后续分类纠错误当漏查。
+覆盖 [API 对照表 4](user-apis-flagtree-vs-triton-ascend.md#表-4--flagtree-tle-扩展原语--triton-ascend-对应情况) 原有全部 33 个关系行，拆为明确的原语配对。**一行只比较一组 TLE 原语与 TA 对应原语；同一个 TLE 原语有多个 TA 对应时分行列出。最后一列只判定本行配对谁早。**
+
+**时间口径**：以下“引入时间”是当前 HEAD 祖先历史中定义及用户导出首见提交的 **C 日期**，不是已核实的 PR 合入时刻。完整作者/提交者时间与 commit 见 §5。`buffer` 指 `triton.extension.buffer.language`；`al` 指 `triton.language.extra.cann.extension`；`custom_ops` 指 `tle.dsa.ascend.custom_ops`。相似或功能级配对不表示语义完全等价。
 
 ### 3.1 跨核同步、编译提示与空间
 
-| # | TLE 具体接口 | FT 首见：C 日期 / commit | TA 较早对应：C 日期 / commit | 判定与边界 |
-|---|---|---|---|---|
-| 1 | dsa.ascend.sub_vec_id | 07-01 `b34efe490` | al.sub_vec_id：01-12 `fa46fac7b` | **TA 早**；FT TLE 为 cann re-export |
-| 2 | dsa.ascend.sub_vec_num | 07-01 `b34efe490` | al.sub_vec_num：01-21 `04caff591` | **TA 早**；不能把它与 id 都回填 fork 日期 |
-| 3 | dsa.ascend.sync_block_set | 07-01 `b34efe490` | 2025-12-29 `313dccecf` | **TA 早**；aux_ops 已定义并导出；01-13 `2fdb3cab7` 是迁移及 pipe 参数增强 |
-| 4 | dsa.ascend.sync_block_wait | 07-01 `b34efe490` | 2025-12-29 `313dccecf` | **TA 早**；同上，不以 core.py 首见替代能力首见 |
-| 5 | dsa.ascend.sync_block_all | 07-01 `b34efe490` | 2025-12-29 `313dccecf` | **TA 早**；01-15 `3393b4416` 只是从 aux_ops 迁移 |
-| 6 | dsa.ascend.compile_hint | 07-01 `b34efe490` | 2025-12-29 `313dccecf` | **TA 早**；FT TLE re-export 与 06-08 cann 导入分开 |
-| 7 | dsa.ascend.multibuffer | 07-01 `b34efe490` | 2025-12-29 `313dccecf` | **TA 早**；同上 |
-| 8 | dsa.ascend.UB/L1/L0A/L0B/L0C | 五项均 07-01 `b34efe490` | ascend_address_space 五项：01-09 `97b5ed7c7` | **TA 早**；TLA 字符串 space：10-26 `b6dda4fa1`，为 ub/l1/l0a/l0b/l0c，不是单一 l0 |
-| 9 | dsa.ascend.PIPE | 07-01 `b34efe490` | al.PIPE：01-16 `395ca4c6d` | **TA 早**；tla.sync.PIPE：10-31 `e76cc20ec` 较晚 |
-| 10 | dsa.ascend.SyncSpec | 10-10 `bb9b00998` | al.SyncEventSlot：06-24 `e707856bc` | **TA 相似描述对象早**；custom-op 事件槽与流水 SyncSpec 不等价 |
+| TLE 原语 | TLE 引入时间 | TA 对应原语 | TA 引入时间 | 对应关系 | 哪边更早 |
+|---|---|---|---|---|---|
+| `tle.dsa.ascend.sub_vec_id` | 2026-07-01 | `al.sub_vec_id` | 2026-01-12 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.sub_vec_num` | 2026-07-01 | `al.sub_vec_num` | 2026-01-21 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.sync_block_set` | 2026-07-01 | `al.sync_block_set` | 2025-12-29 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.sync_block_wait` | 2026-07-01 | `al.sync_block_wait` | 2025-12-29 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.sync_block_all` | 2026-07-01 | `al.sync_block_all` | 2025-12-29 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.compile_hint` | 2026-07-01 | `al.compile_hint` | 2025-12-29 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.multibuffer` | 2026-07-01 | `al.multibuffer` | 2025-12-29 | 同名，TLE re-export | **TA** |
+| `tle.dsa.ascend.UB/L1/L0A/L0B/L0C` | 2026-07-01 | `ascend_address_space` 的对应五个空间 | 2026-01-09 | 空间常量对应，五项日期相同 | **TA** |
+| `tle.dsa.ascend.UB/L1/L0A/L0B/L0C` | 2026-07-01 | `tla.alloc_buffer(space="ub/l1/l0a/l0b/l0c")` | 2026-10-26 | 对应五个空间的 TLA 参数值，非独立函数 | **TLE** |
+| `tle.dsa.ascend.PIPE` | 2026-07-01 | `al.PIPE` | 2026-01-16 | 流水枚举对应 | **TA** |
+| `tle.dsa.ascend.PIPE` | 2026-07-01 | `tla.sync.PIPE` | 2026-10-31 | TLA 流水枚举对应 | **TLE** |
+| `tle.dsa.ascend.SyncSpec` | 2026-10-10 | `al.SyncEventSlot` | 2026-06-24 | 相似事件描述对象，粒度不同 | **TA** |
 
-> 除显式 2025 日期外，本节及后续表中的 MM-DD 均为 **2026 年**。
+同步三项在 TA 的早期 `aux_ops.py` 已定义并导出；2026-01 的路径迁移与 pipe 参数增强不是首见。TLE re-export 时间也不是 FlagTree 2026-06-08 搬入 cann 的时间。
 
 ### 3.2 基础 buffer、切片、算术
 
-| # | TLE 具体接口 | FT 首见：C 日期 / commit | TA 较早能力 | TA 具体 TLA 接口 / 判定 |
-|---|---|---|---|---|
-| 11 | dsa.alloc | 07-01 `b34efe490` | buffer.alloc：01-09 `97b5ed7c7` | tla.alloc/alloc_buffer：10-26 `b6dda4fa1`；**早期 TA buffer 早，FT DSA 早于 TLA** |
-| 12 | dsa.copy | 07-01 `b34efe490` | al.copy_from_ub_to_l1：01-13 `8d06e51ce`；al.copy：02-12 `b35b91bbe` | tla.copy：10-26 `b6dda4fa1`；**早期受限搬运 TA 早，FT DSA 早于 TLA copy**；不是同一搬运矩阵 |
-| 13 | dsa.subview | 07-01 `b34efe490` | buffer.subview：01-13 `1d542d4a3` | tla.subview：11-03 `a81c089dc`；**TA 早期子视图早，FT 早于具体 TLA 子视图** |
-| 14 | dsa.extract_slice / insert_slice | 两项均 07-01 `b34efe490` | al 两项：2025-12-29 `313dccecf` | **TA 早** |
-| 15 | dsa.extract_element | 07-01 `b34efe490` | al.get_element：2025-12-29 `313dccecf` | **TA 对应取元素早**；名字不同 |
-| 16 | dsa.to_tensor / to_buffer | 两项均 07-01 `b34efe490` | buffer.to_tensor：01-10 `d8c03adf6`；to_buffer：01-12 `9bdc70c2f` | **TA 早**；两转换不能混为一个首见日 |
-| 17 | dsa.add/sub/mul/div/max/min | 六项均 07-01 `b34efe490` | 继承 upstream 算术/maximum/minimum：U1；fdiv：U2；显式 add/sub/mul：U4 | tla vadd/vmul/vdiv：10-26 `b6dda4fa1`；vsub/vmax/vmin：10-31 `e76cc20ec`；**upstream 能力更早，FT DSA 早于具体 TLA 指令** |
+| TLE 原语 | TLE 引入时间 | TA 对应原语 | TA 引入时间 | 对应关系 | 哪边更早 |
+|---|---|---|---|---|---|
+| `tle.dsa.alloc` | 2026-07-01 | `buffer.alloc` | 2026-01-09 | 相似：buffer 分配 | **TA** |
+| `tle.dsa.alloc` | 2026-07-01 | `tla.alloc` | 2026-10-26 | 相似：TLA 分配 | **TLE** |
+| `tle.dsa.alloc` | 2026-07-01 | `tla.alloc_buffer` | 2026-10-26 | 相似：TLA buffer 分配 | **TLE** |
+| `tle.dsa.copy` | 2026-07-01 | `al.copy_from_ub_to_l1` | 2026-01-13 | 部分对应：仅 UB→L1，且有架构限制 | **TA** |
+| `tle.dsa.copy` | 2026-07-01 | `al.copy` | 2026-02-12 | 部分对应：受限 UB→UB/L1 搬运 | **TA** |
+| `tle.dsa.copy` | 2026-07-01 | `tla.copy` | 2026-10-26 | 相似：TLA 搬运 | **TLE** |
+| `tle.dsa.subview` | 2026-07-01 | `buffer.subview` | 2026-01-13 | 相似：buffer 子视图 | **TA** |
+| `tle.dsa.subview` | 2026-07-01 | `tla.subview` | 2026-11-03 | 相似：TLA 子视图 | **TLE** |
+| `tle.dsa.extract_slice` | 2026-07-01 | `al.extract_slice` | 2025-12-29 | 同名切片能力 | **TA** |
+| `tle.dsa.insert_slice` | 2026-07-01 | `al.insert_slice` | 2025-12-29 | 同名切片能力 | **TA** |
+| `tle.dsa.extract_element` | 2026-07-01 | `al.get_element` | 2025-12-29 | 相似：取元素，名字不同 | **TA** |
+| `tle.dsa.to_tensor` | 2026-07-01 | `buffer.to_tensor` | 2026-01-10 | 相似：buffer→tensor | **TA** |
+| `tle.dsa.to_buffer` | 2026-07-01 | `buffer.to_buffer` | 2026-01-12 | 相似：tensor→buffer | **TA** |
+| `tle.dsa.add` | 2026-07-01 | `tl.add` | 2024-10-05 | 高层显式函数，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.add` | 2026-07-01 | `tla.simd.vadd` | 2026-10-26 | 相似：专门 SIMD 加法 | **TLE** |
+| `tle.dsa.sub` | 2026-07-01 | `tl.sub` | 2024-10-05 | 高层显式函数，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.sub` | 2026-07-01 | `tla.simd.vsub` | 2026-10-31 | 相似：专门 SIMD 减法 | **TLE** |
+| `tle.dsa.mul` | 2026-07-01 | `tl.mul` | 2024-10-05 | 高层显式函数，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.mul` | 2026-07-01 | `tla.simd.vmul` | 2026-10-26 | 相似：专门 SIMD 乘法 | **TLE** |
+| `tle.dsa.div` | 2026-07-01 | `tl.fdiv` | 2022-01-29 | 高层除法，须区分具体语义，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.div` | 2026-07-01 | `tla.simd.vdiv` | 2026-10-26 | 相似：专门 SIMD 除法 | **TLE** |
+| `tle.dsa.max` | 2026-07-01 | `tl.maximum` | 2021-07-27 | 逐元素最大值，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.max` | 2026-07-01 | `tla.simd.vmax` | 2026-10-31 | 相似：专门 SIMD 最大值 | **TLE** |
+| `tle.dsa.min` | 2026-07-01 | `tl.minimum` | 2021-07-27 | 逐元素最小值，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.min` | 2026-07-01 | `tla.simd.vmin` | 2026-10-31 | 相似：专门 SIMD 最小值 | **TLE** |
 
-算术口径：没有 `tl.div`；高层除法看 `/` 或 `tl.fdiv` 的具体语义。逐元素 max/min 对应 `tl.maximum/minimum`，不是归约 `tl.max/min`。upstream 历史是两仓共同继承的通用能力，不能归为 TA 昇腾侧原创。
+`tl.add/sub/mul` 的日期是显式函数首见；运算符 `+/-/*` 更早已存在（U1，2021-07-27）。没有 `tl.div`；逐元素 max/min 也不是归约 `tl.max/min`。这里的 upstream 日期是共同继承的历史，不表示 TA 昇腾原创或这些 API 在该年已适配昇腾。
 
 ### 3.3 tile、scope 与流水
 
-| # | TLE 具体接口 | FT 首见：C 日期 / commit | TA 对应日期 / commit | 判定与边界 |
-|---|---|---|---|---|
-| 18 | dsa.tile_alloc | 08-27 `f56cd1bdb` | tla.alloc_buffer：10-26 `b6dda4fa1`；早期 buffer.alloc：01-09 `97b5ed7c7` | **FT 具体 tile 接口早于 TLA；TA 早期分配能力更早** |
-| 19 | dsa.tile_copy | 08-27 `f56cd1bdb` | tla.copy：10-26 `b6dda4fa1`；DMA：10-31 `e76cc20ec`；受限 al 搬运见 #12 | **FT 早于具体 TLA copy/DMA；不代表全部搬运路线 TA 更晚** |
-| 20 | dsa.tile_subview | 08-27 `f56cd1bdb` | tla.subview：11-03 `a81c089dc`；buffer.subview：01-13 `1d542d4a3` | **FT 早于 TLA，TA 早期子视图更早** |
-| 21 | dsa.tile_set_flag / tile_wait_flag | 两项均 08-27 `f56cd1bdb` | tla.sync.set_flag/wait_flag：10-30 `f810ca587` | **FT 具体流水 flag 接口早**；不能用跨核 sync_block 日期代替段内同步 |
-| 22 | dsa.tile_pipe_barrier | 08-27 `f56cd1bdb` | tla.sync.barrier：10-30 `f810ca587` | **FT 早**；pipe barrier 与跨核 all 不同 |
-| 23 | dsa.tile_cube_launch / tile_cube_wait | 两项均 08-27 `f56cd1bdb` | tla.cube.mmad：10-30 `690924d08`；scope.cube：10-26 `b6dda4fa1` | **FT launch 早于具体 TLA Cube 接口**；TA 无独立等价 cube_wait；早期 tl.dot（U1）仅高层能力，不能等同启动/等待 |
-| 24 | dsa.tile_gm_offset | 08-27 `f56cd1bdb` | tla.view offsets：10-26 `b6dda4fa1`；早期指针算术 U1 / block_ptr U3 | **FT 具体 offset 原语早于 TLA view**；旧指针能力仅概念对应 |
-| 25 | dsa.pipeline / parallel / hint | 三项均 07-01 `b34efe490` | al.parallel/compile_hint/multibuffer：2025-12-29 `313dccecf` | **TA 相似标注早**；非同名 pipeline，不证明自动调度能力等价；DSA marker 不是直接 re-export |
-| 26 | dsa.workspace | 10-10 `bb9b00998` | **无独立对应 TA DSL API** | 可在 host 分配后传 kernel，但不能给组合实现编造接口首见日期 |
-| 27 | tle.scope(core_mode=) | 08-27 `f56cd1bdb` | al.scope：01-07 `5e693bb3f`；tla.scope.simd/cube：10-26 `b6dda4fa1` | **TA al 核作用域更早，FT core_mode scope 早于 TLA scope**；01-05 TLE GPU storage scope 不算当前语义首见 |
+| TLE 原语 | TLE 引入时间 | TA 对应原语 | TA 引入时间 | 对应关系 | 哪边更早 |
+|---|---|---|---|---|---|
+| `tle.dsa.tile_alloc` | 2026-08-27 | `buffer.alloc` | 2026-01-09 | 相似：早期 buffer 分配 | **TA** |
+| `tle.dsa.tile_alloc` | 2026-08-27 | `tla.alloc_buffer` | 2026-10-26 | 相似：具体 TLA 分配接口 | **TLE** |
+| `tle.dsa.tile_copy` | 2026-08-27 | `al.copy` | 2026-02-12 | 部分对应：受限搬运 | **TA** |
+| `tle.dsa.tile_copy` | 2026-08-27 | `tla.copy` | 2026-10-26 | 相似：具体 TLA 拷贝接口 | **TLE** |
+| `tle.dsa.tile_copy` | 2026-08-27 | `tla.dma.copy_ub_to_l1` | 2026-10-31 | 部分对应：具体 UB→L1 路线 | **TLE** |
+| `tle.dsa.tile_subview` | 2026-08-27 | `buffer.subview` | 2026-01-13 | 相似：早期 buffer 子视图 | **TA** |
+| `tle.dsa.tile_subview` | 2026-08-27 | `tla.subview` | 2026-11-03 | 相似：具体 TLA 子视图接口 | **TLE** |
+| `tle.dsa.tile_set_flag` | 2026-08-27 | `tla.sync.set_flag` | 2026-10-30 | 相似：段内流水置事件 | **TLE** |
+| `tle.dsa.tile_wait_flag` | 2026-08-27 | `tla.sync.wait_flag` | 2026-10-30 | 相似：段内流水等事件 | **TLE** |
+| `tle.dsa.tile_pipe_barrier` | 2026-08-27 | `tla.sync.barrier` | 2026-10-30 | 相似：流水 barrier，非跨核 all | **TLE** |
+| `tle.dsa.tile_cube_launch` | 2026-08-27 | `tla.cube.mmad` | 2026-10-30 | 部分对应：Cube 计算，非完全等价 launch | **TLE** |
+| `tle.dsa.tile_cube_launch` | 2026-08-27 | `tla.scope.cube` | 2026-10-26 | 部分对应：Cube 执行作用域，非独立 launch | **TLE** |
+| `tle.dsa.tile_cube_wait` | 2026-08-27 | 无独立等价接口 | — | 不把 Cube 计算配对扩展为 wait 等价 | **不可比较** |
+| `tle.dsa.tile_gm_offset` | 2026-08-27 | `tla.view` 的 offsets 参数 | 2026-10-26 | 部分对应：GM 偏移表达 | **TLE** |
+| `tle.dsa.tile_gm_offset` | 2026-08-27 | `tl.make_block_ptr` / `tl.advance` | 2023-03-27 | 概念对应：块指针与偏移，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.dsa.pipeline` | 2026-07-01 | `al.multibuffer` | 2025-12-29 | 仅相似流水/多缓冲标注，不等价调度器 | **TA** |
+| `tle.dsa.parallel` | 2026-07-01 | `al.parallel` | 2025-12-29 | 相似并行标注，DSA marker 非 re-export | **TA** |
+| `tle.dsa.hint` | 2026-07-01 | `al.compile_hint` | 2025-12-29 | 相似编译提示，DSA marker 非 re-export | **TA** |
+| `tle.dsa.workspace` | 2026-10-10 | 无独立对应 DSL API | — | host 分配后传 kernel 只是组合实现 | **不可比较** |
+| `tle.scope(core_mode="cube"/"vector")` | 2026-08-27 | `al.scope` | 2026-01-07 | 相似：核执行作用域 | **TA** |
+| `tle.scope(core_mode="cube")` | 2026-08-27 | `tla.scope.cube` | 2026-10-26 | 相似：Cube 作用域 | **TLE** |
+| `tle.scope(core_mode="vector")` | 2026-08-27 | `tla.scope.simd` | 2026-10-26 | 相似：Vector/SIMD 作用域 | **TLE** |
+
+早期 `tl.dot`（U1，2021-07-27）只是高层矩阵乘能力，不作为显式 Cube launch/wait 的等价配对。TLE 2026-01-05 的 GPU storage scope 也不是当前 `core_mode` scope。
 
 ### 3.4 专门算子、通用加载与视图
 
-| # | TLE 具体接口 | FT 首见：C 日期 / commit | TA 对应日期 / commit | 判定与边界 |
-|---|---|---|---|---|
-| 28 | custom_ops.gather_gm_to_ub / gather_gm_to_l1 | 两项均 09-04 `bd382d749` | al.gather_out_to_ub：2025-12-29 `313dccecf` | **TA GM→UB gather 功能早**；L1 专门接口无直接对应，需组合；FT 是 class+C++，不是简单 re-export |
-| 29 | custom_ops.sort32 / mrgsort / unpack_sort | sort32/mrgsort：09-17 `895e4ea41`；unpack_sort：09-04 `bd382d749` | 一般 al.sort：2025-12-29 `313dccecf` | **一般排序 TA 早**；无三个专门指令的一一对应 TA API，不能由一般 sort 推导指令首见 |
-| 30 | custom_ops.cast_int4_to_fp16 | 09-23 `2b5b81320` | **无直接对应** | 通用 al.cast 不提供这个专门 packed int4 转换；撤销此前类似 cast 的配对 |
-| 31 | tle.language.load（非顶层 tle.load） | 01-05 `2b19cd5e4` | tl.load：U1（2021） | **共同 upstream 高层加载更早**；TA 无等价 Hopper 异步 SMEM 语义，不能判该异步能力 TA 更早 |
-| 32 | tle.tile_load / tile_store | 两项均 10-28 `aac54bb19` | tla.dma.load_gm_to_ub/store_ub_to_gm 等：10-31 `e76cc20ec` | **FT 比具体命名 DMA 接口早约三天**；不是 08-27 DSA tile_copy 首见日；高层 tl.load/store 更早但粒度不同 |
-| 33 | tle.language.tensor_view；tle.make_partition_view / make_strided_view / make_gather_scatter_view | 四项均 10-28 `aac54bb19` | tla.view：10-26 `b6dda4fa1`；tla.subview：11-03 `a81c089dc`；buffer.subview/U3 更早 | **TA view 早两天，FT 早于 tla.subview**；partition/gather-scatter 没有完全同构的 TA 构造器，不能整族强行判早晚 |
+| TLE 原语 | TLE 引入时间 | TA 对应原语 | TA 引入时间 | 对应关系 | 哪边更早 |
+|---|---|---|---|---|---|
+| `custom_ops.gather_gm_to_ub` | 2026-09-04 | `al.gather_out_to_ub` | 2025-12-29 | 功能级对应：GM→UB gather | **TA** |
+| `custom_ops.gather_gm_to_l1` | 2026-09-04 | 无直接对应接口 | — | 需组合 gather 与搬运 | **不可比较** |
+| `custom_ops.sort32` | 2026-09-17 | `al.sort` | 2025-12-29 | 仅一般排序功能对应，非 sort32 专门指令 | **TA（一般排序）** |
+| `custom_ops.mrgsort` | 2026-09-17 | `al.sort` | 2025-12-29 | 仅一般排序功能对应，非 mrgsort 专门指令 | **TA（一般排序）** |
+| `custom_ops.unpack_sort` | 2026-09-04 | `al.sort` | 2025-12-29 | 仅排序功能级对应，非 unpack_sort 专门指令 | **TA（一般排序）** |
+| `custom_ops.cast_int4_to_fp16` | 2026-09-23 | 无直接对应接口 | — | 通用 `al.cast` 不证明专门 packed int4 转换 | **不可比较** |
+| `tle.language.load` | 2026-01-05 | `tl.load` | 2021-07-27 | 仅高层加载功能对应，继承 upstream | **TA 侧接口（upstream）** |
+| `tle.tile_load` | 2026-10-28 | `tla.dma.load_gm_to_ub` | 2026-10-31 | 部分对应：GM→UB 路线 | **TLE** |
+| `tle.tile_store` | 2026-10-28 | `tla.dma.store_ub_to_gm` | 2026-10-31 | 部分对应：UB→GM 路线 | **TLE** |
+| `tle.language.tensor_view` | 2026-10-28 | `tla.view` | 2026-10-26 | 相似：视图表达 | **TA** |
+| `tle.make_strided_view` | 2026-10-28 | `tla.view` | 2026-10-26 | 部分对应：带 stride 的视图 | **TA** |
+| `tle.make_partition_view` | 2026-10-28 | `buffer.subview` | 2026-01-13 | 仅分区/子区域概念对应，非同构构造器 | **TA** |
+| `tle.make_partition_view` | 2026-10-28 | `tla.subview` | 2026-11-03 | 仅分区/子区域概念对应，非同构构造器 | **TLE** |
+| `tle.make_gather_scatter_view` | 2026-10-28 | 无完全同构的视图构造器 | — | 不能拿一般子视图替代 gather-scatter 语义 | **不可比较** |
 
-TA 命名 DMA 族同次新增 11 项：`load_gm_to_ub`、`store_ub_to_gm`、`load_gm_to_l1`、`copy_ub_to_l1`、`copy_l1_to_ub`、`copy_l1_to_bt`、`copy_l1_to_fb`、`copy_l1_to_l0`、`store_l0c_to_gm`、`copy_l0c_to_ub`、`copy_l0c_to_l1`。存在接口不等于所有硬件/dtype/layout 组合都支持。
+TA 没有与 `tle.language.load` 等价的 Hopper 异步 SMEM 语义，表中仅比较普通加载功能。`tile_load/store` 的 2026-10-28 不能误用 DSA `tile_copy` 的 2026-08-27。
+
+TA 命名 DMA 族同次新增 11 项（2026-10-31，`e76cc20ec`）：`load_gm_to_ub`、`store_ub_to_gm`、`load_gm_to_l1`、`copy_ub_to_l1`、`copy_l1_to_ub`、`copy_l1_to_bt`、`copy_l1_to_fb`、`copy_l1_to_l0`、`store_l0c_to_gm`、`copy_l0c_to_ub`、`copy_l0c_to_l1`。存在接口不等于所有硬件/dtype/layout 组合都支持。
 
 ## 4. 旧分支证据：为什么不直接拿最早作者日期排序
 
