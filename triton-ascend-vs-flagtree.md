@@ -26,7 +26,17 @@
 | 后端编译器 | **bishengir-compile / bishengir-opt** | 同 |
 | 特有机制 | backend monkey-patch(`_apply_ascend_patch`) | `flagtree_spec`(多后端符号注入 + spec_path) |
 
-**一句话**:两者共享同一套昇腾编译底座(AscendNPU-IR / BiShengIR)和大部分 `cann.*` 用户 API。**以 Triton-Ascend 为基准看,FlagTree 是其"精简子集 + 多后端通用化"**:FlagTree 去掉了 TLA 范式、`dot`/`conv2d` builtin,并把 libdevice 大量函数 rebind 到 upstream 而非自实现;独有项仅 `custom_object_semantic`。
+### 当前结论总结
+
+1. **FlagTree 的 cann 层主要来自 Triton-Ascend 整体同步,而非逐个特性独立开发。** Git 记录显示,FlagTree 在 **2026-06-08** 的提交 `8c30adb6c` 中同步 TA,基线为 **2026-05-15** 的 `c85527413`。FlagTree 的源码目录是 [third_party/ascend/language/cann/](../FlagTree/third_party/ascend/language/cann/),包含 `libdevice.py` 和 `extension/`(`al`)。
+2. **当前 al/libdevice 的主要差异首先是同步版本差,不能归因于 FlagTree 主动裁剪。** FlagTree 缺少 `al.dot`、`al.conv2d`,因为 TA 在同步基线之后才引入它们。FlagTree 的 libdevice“少量独立实现 + rebind 到 `math.*`”也是 TA 当时已有的形态;TA 此后扩展为全量 libdevice,FlagTree 当前仍主要保留历史形态。当前识别到的 FlagTree 独有 cann 扩展是 `custom_object_semantic`。历史依据见 [feature-timeline-git.md](feature-timeline-git.md)。
+3. **显式内存编程层是两条不同路线:TA 的 TLA 与 FlagTree 的 TLE。** TA 使用 `triton.language.extra.tla`,更贴近昇腾 DMA、SIMD、Cube 指令;FlagTree 使用 `triton.experimental.tle`,包含跨后端的 buffer、tile、流水与昇腾扩展。不少能力相同或类似,但不能据此认定接口、编译行为和性能等价。TLE 还提供流水调度器和分布式通信接口,TA 当前未找到直接对应接口。
+4. **API 已暴露不等于 A2/A3/950 全部支持。** 已确认 `al.fixpipe`、`al.copy`、`al.copy_from_ub_to_l1` 以及 `cast` 的 fp8/fp64 转换存在 950 专属限制。需区分硬件限制、dtype 限制和 SIMT 模式限制;源码没有架构守卫,也不等于所有组合都已运行验证。逐 API 对照表中的硬件标注是源码分析结论,不是全组合实测认证。
+5. **两仓共享 AscendNPU-IR / BiShengIR 编译体系,但不代表编译器版本完全相同。** 用户层差异主要集中在 API 快照、TLA/TLE 编程方式、扩展注入机制和前端 lowering。当前 FlagTree 的 AscendNPU-IR 源码完整可查,TA 对应子模块在工作区尚未检出;底座版本是否一致需另行核对两仓引用的 commit 和实际使用的编译器。
+
+6. **提交先后需要分具体接口与较早能力两种口径。** 当前 HEAD 历史中,TA 的早期 `al`/buffer API 多数先于 TLE DSA/Ascend 的 2026-07-01 导出;TLE tile 接口(2026-08-27)先于具体 TLA 接口(2026-10~11 月)。通用 tile_load/store 与视图族另有日期,不能套用整族结论;旧分支与整批导入也不能作为原创归属证据。逐项对照与作者/提交者日期见 [时间线 §3](feature-timeline-git.md#3-逐原语首见与先后对照)。
+
+**一句话**:FlagTree 昇腾侧更适合理解为“TA 历史后端快照 + 多后端适配机制 + 独立演进的 TLE”,而不是“重新逐项实现或主动删减 TA API”。
 
 ---
 
@@ -90,7 +100,7 @@ FlagTree/third_party/
 
 > 源码:[triton-ascend extension/__init__.py](../triton-ascend/third_party/ascend/language/cann/extension/__init__.py) 与 [FlagTree extension/__init__.py](../FlagTree/third_party/ascend/language/cann/extension/__init__.py)。
 
-> **架构限制(两仓一致)**:并非所有 `al.*` 都三代通用。经逐个核查,**`fixpipe` / `copy` / `copy_from_ub_to_l1` 是 950(register-based,`Ascend910_95`/`Ascend960`)专属**——A2/A3 调用会 `RuntimeError`(这些是 L0C/L1 register-based 片上搬运);**`cast` 的 fp8/fp64 转换也仅 950**(A2/A3 `ValueError`),基础 dtype 全支持。其余 `dot`/`conv1d`/`conv2d`/`sync_block_*`/`sub_vec_*`/`sort`/`flip`/`get_element`/`insert_slice`/`extract_slice`/`index_put`/`gather_out_to_ub`/`scatter_ub_to_out`/`index_select_simd` 等**无架构门,A2/A3/950 全支持**。逐行见对照表 [表 1.1](user-apis-flagtree-vs-triton-ascend.md)。
+> **架构限制(两仓一致)**:并非所有 `al.*` 都三代通用。经逐个核查,**`fixpipe` / `copy` / `copy_from_ub_to_l1` 是 950(register-based,`Ascend910_95`/`Ascend960`)专属**——A2/A3 调用会 `RuntimeError`(这些是 L0C/L1 register-based 片上搬运);**`cast` 的 fp8/fp64 转换也仅 950**(A2/A3 `ValueError`),基础 dtype 全支持。其余 `dot`/`conv1d`/`conv2d`/`sync_block_*`/`sub_vec_*`/`sort`/`flip`/`get_element`/`insert_slice`/`extract_slice`/`index_put`/`gather_out_to_ub`/`scatter_ub_to_out`/`index_select_simd` 等**未发现显式架构禁用守卫**;这不等于全部硬件/dtype/shape 组合已通过运行验证。逐行见对照表 [表 1.1](user-apis-flagtree-vs-triton-ascend.md)。
 
 ### 2.3 `cann.libdevice` 差异(实现策略不同)
 
@@ -117,11 +127,11 @@ libdevice.abs  = math.abs;   libdevice.fma = math.fma;   libdevice.erf  = math.e
 - **Triton-Ascend**:`libdevice.py` 里有独立的 `def exp`(`@core.extern`,[libdevice.py:3865](../triton-ascend/third_party/ascend/language/cann/libdevice.py#L3865)),自己定义调用哪个底层符号、支持哪些 dtype。
 - **FlagTree**:`libdevice.py` 里**根本没有** `def exp`;而是在 [cann/__init__.py](../FlagTree/third_party/ascend/language/cann/__init__.py) 执行时,用 `libdevice.exp = math.exp` **把一个已存在于别处的实现贴到 `libdevice.exp` 这个名字上**——这就是 rebind(重新绑定模块属性)。
 
-因此 FlagTree 的 `libdevice` 是个**聚合壳**,三类来源混合:
+因此 FlagTree 的 `libdevice` 是个**聚合壳**,三类来源混合(注:这套形态搬自 TA 2026-05-15 快照,非 FlagTree 自创,见下方澄清):
 
 | 来源 | 数量 | 例子 | 说明 |
 |---|---|---|---|
-| **自实现** `@core.extern` | 39 | `tanh/atan/pow/erfinv/gamma/hypot` | 与 TA 同类,昇腾自己写 |
+| **自实现** `@core.extern` | 39 | `tanh/atan/pow/erfinv/gamma/hypot` | 昇腾侧 extern(TA 当时写的,随搬入带来) |
 | rebind 自 **upstream `math.*`** | ~17 | `exp/exp2/log/log2/sin/cos/sqrt/sqrt_rn/rsqrt/div_rn/erf/floor/ceil/fdiv/fma/abs/umulhi` | 复用 Triton 官方通用数学实现(各后端共享) |
 | rebind 自 **`cann.extension`** | 4 | `flip`([vec_ops.py](../FlagTree/third_party/ascend/language/cann/extension/vec_ops.py)) / `isfinited` / `finitef` / `atan2`([math_ops.py](../FlagTree/third_party/ascend/language/cann/extension/math_ops.py)) | 指向昇腾自己的 builtin 扩展 |
 
@@ -132,7 +142,7 @@ libdevice.abs  = math.abs;   libdevice.fma = math.fma;   libdevice.erf  = math.e
 3. **部分 rebind 带开关**:`atan2` 是**条件性**的——[cann/__init__.py](../FlagTree/third_party/ascend/language/cann/__init__.py) `if not triton_enable_libdevice_simt()` 才指向 extension 版本(SIMT 模式下不用)。
 4. **存在反向 rebind**:`math.tanh = libdevice.tanh`——把昇腾的 `tanh` 贴回 upstream `math`,使 `tl.tanh` 等上层调用也走昇腾实现(此行两仓一致)。
 
-> 动机:FlagTree 是多后端统一框架,`exp/sqrt/log` 这类标准函数 upstream 已有通用实现且能被各后端 lowering 正确处理,复用而非重写 → 少维护、跟随 upstream 升级,也是它 libdevice 仅 1004 行(TA 4182 行)的直接原因。
+> 重要澄清(git 考据,见 [feature-timeline-git.md](feature-timeline-git.md)):**FlagTree 的 cann 层不是自己逐特性开发的,而是 2026-06-08 从 TA 整体搬入**(同步基线 = TA commit `c85527413` @ 2026-05-15),之后 cann 目录在 FlagTree 几乎零改动。所谓"精简 + rebind"形态,**正是 TA 在 2026-05-15 那个时点的原貌**(当时 TA libdevice 就只有 37 函数/1044 行、`__init__.py` 里就有 `libdevice.exp=math.exp` 等 rebind)。**是 TA 自己在基线之后把 libdevice 膨胀到了全量 183 函数/4182 行并移除 rebind**(全量 SIMT 版 `7c6f063ae` 等在基线后才并入 TA 主线)。因此"FlagTree 精简、TA 全量"的差异,本质是**两仓在 libdevice 演进时间轴上的快照差**,不是 FlagTree 主动裁剪。
 
 ### 2.4 TLA(Triton-Ascend 独有,FlagTree 无)
 
@@ -195,7 +205,7 @@ ttir ──make_ttir──▶ ttadapter(linalg, ttir_to_linalg, named_ops=True)
 路径:[FlagTree/third_party/ascend/AscendNPU-IR/bishengir](../FlagTree/third_party/ascend/AscendNPU-IR/bishengir)
 
 - 这是 **MLIR-for-Ascend** 的开源编译器(GitCode `Ascend/AscendNPU-IR`),提供从硬件无关表达到达芬奇指令的编译优化。
-- **两个仓库用的是同一个它**:Triton-Ascend 以 git submodule 引入(`.gitmodules` 指向同一 gitcode 仓),**但当前 workspace 未 checkout(空目录)**;FlagTree 则是完整 in-tree。所以要看 AscendNPU-IR 实现细节,**应以 FlagTree 侧为准**。
+- **两个仓库共享这一编译体系,不代表使用完全相同的版本**:Triton-Ascend 以 git submodule 引入(`.gitmodules` 指向同一 gitcode 仓),**但当前 workspace 未 checkout(空目录)**;FlagTree 则是完整 in-tree。当前可用 FlagTree 侧源码研究底座实现,但不能直接视为 TA 对应版本的实现;版本一致性需核对两仓引用的 commit 和实际编译器。
 
 ### Dialect 层(`include/bishengir/Dialect/`)
 ```

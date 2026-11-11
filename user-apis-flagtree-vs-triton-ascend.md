@@ -320,7 +320,7 @@
 
 > **TLE(`triton.experimental.tle`)为 FlagTree 独有**(源码 [experimental/tle/](../FlagTree/python/triton/experimental/tle/)),是跨 GPU/NPU 的显式内存/流水语言,含完整昇腾实现(`dsa.ascend`)。
 > 本表看每个 TLE 原语在 **Triton-Ascend** 里有没有「相同 API(仅接口层差异)」或「类似 API」。
-> 「TA 对应」列:**相同**=语义一致仅命名/签名差异 · **类似**=概念对应但范式/粒度不同 · **无**=TA 无对应物。
+> 「TA 对应」列:**相同**=此前源码对照的语义对应分类,不表示全组合运行验证或源码同源 · **类似**=概念对应但范式/粒度不同 · **无**=TA 无对应物。具体接口首见与较早能力首见需分开比较,历史核查见 [feature-timeline-git.md](feature-timeline-git.md)。
 > **架构说明**:TLE `dsa.ascend` 层的 Python 代码**无硬架构门**,原语在 A2/A3/950 均可发 IR,架构约束在 lowering/verifier 层(与 tla 同机制)。因此「适用硬件」列对 TLE 原语统一记 A2/A3 · 950;但凡涉及 **L0C→UB fixpipe、register-based 片上搬运**(如对应 `al.copy`/`al.fixpipe` 者)的实际可用性受 **950 专属**约束,与 TA 侧一致(见表 1.1 与 1.5 注)。
 
 | TLE 接口名(FT) | 所属层 | 适用硬件 | TA 对应 | TA 对应 API | 功能 |
@@ -332,25 +332,25 @@
 | `tle.dsa.ascend.sync_block_all` | DSA-Ascend | A2/A3 · 950 | **相同** | `al.sync_block_all` | 跨核块同步 |
 | `tle.dsa.ascend.compile_hint` | DSA-Ascend | A2/A3 · 950 | **相同** | `al.compile_hint` | 编译提示 |
 | `tle.dsa.ascend.multibuffer` | DSA-Ascend | A2/A3 · 950 | **相同** | `al.multibuffer` | 多缓冲标注 |
-| `tle.dsa.ascend.UB/L1/L0A/L0B/L0C` | DSA-Ascend | A2/A3 · 950 | **相同** | `al.ascend_address_space` / `tla` space(`"ub"/"l1"/"l0"`) | 片上内存层级常量 |
+| `tle.dsa.ascend.UB/L1/L0A/L0B/L0C` | DSA-Ascend | A2/A3 · 950 | **相同** | `al.ascend_address_space` / `tla` space(`"ub"/"l1"/"l0a"/"l0b"/"l0c"`) | 片上内存层级常量 |
 | `tle.dsa.ascend.PIPE` | DSA-Ascend | A2/A3 · 950 | **相同** | `al.PIPE` / `tla.sync.PIPE` | 流水枚举 |
 | `tle.dsa.ascend.SyncSpec` | DSA-Ascend | A2/A3 · 950 | **类似** | `al.SyncEventSlot` | 同步事件描述 |
-| `tle.dsa.alloc` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.alloc` / `tla.alloc_buffer` | 分配片上 buffer |
+| `tle.dsa.alloc` | DSA 通用 | A2/A3 · 950 | **类似** | `extension.buffer.language.alloc` / `tla.alloc` / `tla.alloc_buffer` | 分配片上 buffer;比较历史时须包含早期 buffer API |
 | `tle.dsa.copy` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.copy` / `al.copy` | buffer 间拷贝 |
-| `tle.dsa.subview` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.subview` | buffer 子视图 |
+| `tle.dsa.subview` | DSA 通用 | A2/A3 · 950 | **类似** | `extension.buffer.language.subview` / `tla.subview` | buffer 子视图;两者首见时间不同 |
 | `tle.dsa.extract_slice` / `insert_slice` | DSA 通用 | A2/A3 · 950 | **相同** | `al.extract_slice` / `al.insert_slice` | 片上切片 |
 | `tle.dsa.extract_element` | DSA 通用 | A2/A3 · 950 | **相同** | `al.get_element` | 取标量元素 |
 | `tle.dsa.to_tensor` / `to_buffer` | DSA 通用 | A2/A3 · 950 | **类似** | `extension.buffer.language.to_tensor/to_buffer` | buffer↔tensor |
-| `tle.dsa.add/sub/mul/div/max/min` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.simd.v*`(vadd/vmul/…)/ `tl.*` | 片上算术 |
+| `tle.dsa.add/sub/mul/div/max/min` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.simd.vadd/vsub/vmul/vdiv/vmax/vmin`;高层 `tl.add/sub/mul`、`/`/`tl.fdiv`、`tl.maximum/minimum` | 片上算术;无 `tl.div`,逐元素 max/min 不能对应归约 `tl.max/min` |
 | `tle.dsa.tile_alloc` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.alloc_buffer`(L1 多槽见 TA 经验) | tile 级分配 |
 | `tle.dsa.tile_copy` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.copy` + DMA 族 | tile 级搬运 |
 | `tle.dsa.tile_subview` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.subview` | tile 子视图 |
 | `tle.dsa.tile_set_flag` / `tile_wait_flag` | DSA 通用 | A2/A3 · 950 | **相同** | `tla.sync.set_flag` / `wait_flag` | tile 流水 flag |
 | `tle.dsa.tile_pipe_barrier` | DSA 通用 | A2/A3 · 950 | **相同** | `tla.sync.barrier` | 流水屏障 |
-| `tle.dsa.tile_cube_launch` / `tile_cube_wait` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.cube.mmad` + `tla.scope.cube` | cube 核启动/等待 |
+| `tle.dsa.tile_cube_launch` / `tile_cube_wait` | DSA 通用 | A2/A3 · 950 | **类似(部分)** | launch 可对照 `tla.cube.mmad` + `tla.scope.cube`;无独立等价 `cube_wait` API | cube 核启动/等待,不能把 launch 对应关系扩展为 wait 等价 |
 | `tle.dsa.tile_gm_offset` | DSA 通用 | A2/A3 · 950 | **类似** | `tla.view`(GM 偏移) | GM 偏移计算 |
 | `tle.dsa.pipeline` / `parallel` / `hint` | DSA 通用 | A2/A3 · 950 | **类似** | `al.parallel` / `al.compile_hint` | 流水/并行标注 |
-| `tle.dsa.workspace` | DSA 通用 | A2/A3 · 950 | **类似** | (TA 经 kernel 入参/`tl` workspace) | 工作区分配 |
+| `tle.dsa.workspace` | DSA 通用 | A2/A3 · 950 | **无直接对应** | 可在 host 分配后作为 kernel 入参,但不是独立 TA DSL API | 工作区分配;不为组合实现虚构接口首见日期 |
 | `tle.scope(core_mode=)` | 通用 | A2/A3 · 950 | **相同** | `al.scope` / `tla.scope.simd/cube` | 核模式作用域 |
 | `tle.dsa.ascend.pipe_scheduler` / `PipeScheduler` | DSA-Ascend | A2/A3 · 950 | **无** | — | 流水调度器(自动事件分配) |
 | `tle.dsa.ascend.pipe_reader` / `pipe_writer` / `pipe_slot` / `run_pipe` | DSA-Ascend | A2/A3 · 950 | **无** | — | 生产者/消费者流水端点 |
@@ -358,13 +358,13 @@
 | `tle.dsa.ascend.device_mesh` / `MeshConfig` | DSA-Ascend | A2/A3 · 950 | **无** | — | 多卡设备网格 |
 | `tle.dsa.ascend.remote` / `shard_id` / `distributed_barrier` | DSA-Ascend | A2/A3 · 950 | **无** | — | 分布式通信原语 |
 | `tle.dsa.ascend.swizzle2d_Nz` / `gemm_swizzle2d_Nz` | DSA-Ascend | A2/A3 · 950 | **无** | — | NZ 布局 swizzle(分布式 GEMM) |
-| `tle.dsa.ascend.custom_ops.gather_gm_to_ub/l1` | DSA-Ascend | A2/A3 · 950 | **类似** | `al.gather_out_to_ub` | GM→UB/L1 gather |
-| `tle.dsa.ascend.custom_ops.sort32` / `mrgsort` / `unpack_sort` | DSA-Ascend | A2/A3 · 950 | **类似** | `al.sort` | 高性能排序算子 |
-| `tle.dsa.ascend.custom_ops.cast_int4_to_fp16` | DSA-Ascend | A2/A3 · 950 | **类似** | `al.cast` | int4→fp16 转换 |
+| `tle.dsa.ascend.custom_ops.gather_gm_to_ub/l1` | DSA-Ascend | A2/A3 · 950 | **类似(部分)** | `al.gather_out_to_ub` 仅直接对应 GM→UB;GM→L1 需组合搬运 | GM→UB/L1 gather;不能把 UB 接口日期当作专门 L1 接口首见 |
+| `tle.dsa.ascend.custom_ops.sort32` / `mrgsort` / `unpack_sort` | DSA-Ascend | A2/A3 · 950 | **类似(功能级)** | 一般排序 `al.sort`;无上述三个专门指令的一一对应 API | 排序/合并/解包;一般 sort 更早不代表专门指令更早 |
+| `tle.dsa.ascend.custom_ops.cast_int4_to_fp16` | DSA-Ascend | A2/A3 · 950 | **无直接对应** | TA 无 int4 dtype/专门原语;可拆 packed int4 后组合 cast | 专门 int4→fp16 转换,不能以通用 `al.cast` 的首见作为该能力首见 |
 | `tle.dsa.ascend.custom_ops.pair_reduce_sum_continuous_mask` 等 | DSA-Ascend | A2/A3 · 950 | **无** | — | 特定 mask/reduce 融合算子 |
-| `tle.load` | 通用 | GPU 为主 | **类似** | `tl.load`(昇腾无 async SMEM 语义) | 异步加载(Hopper) |
+| `tle.language.load` | 通用 | GPU 为主 | **类似** | `tl.load`(昇腾无 async SMEM 语义) | 异步加载(Hopper);当前未顶层导出为 `tle.load` |
 | `tle.tile_load` / `tile_store` | 通用 | GPU 为主 | **类似** | `tla` DMA 族 | tile 加载/存储 |
-| `tle.tensor_view` / `make_partition_view` / `make_strided_view` / `make_gather_scatter_view` | 通用 | GPU 为主 | **类似** | `tla.view` / `tla.subview` | 张量视图构造 |
+| `tle.language.tensor_view` / `tle.make_partition_view` / `tle.make_strided_view` / `tle.make_gather_scatter_view` | 通用 | GPU 为主 | **类似(部分)** | `tla.view` / `tla.subview`;早期 buffer.subview/block_ptr | 张量视图构造;无全部一一对应构造器;当前无顶层 `tle.tensor_view` |
 | `tle.local_ptr` | 通用(GPU) | GPU 专属 | **无** | — | SMEM 任意形状指针视图(Hopper) |
 | `tle.smem` / `tle.tmem` | 通用(GPU) | GPU 专属 | **无** | — | 共享/tensor 内存作用域(Hopper) |
 
@@ -372,7 +372,8 @@
 
 **表 4 小结**:
 - **相同(仅接口层差异)**:`dsa.ascend` 的跨核同步/子核/内存层级/编译提示族,与 TA 的 `al.*` 几乎一一对应;`tile_set_flag/wait_flag/pipe_barrier`、`scope` 与 TA `tla.sync`/`tla.scope` 对应。
-- **类似(范式不同)**:`alloc`/`copy`/`subview`/`tile_*`/算术 → TA 的 `tla.*`(TLE 用 tile 抽象,TA 用 buffer+SIMD 指令);custom_ops 的 gather/sort/cast → TA 的 `al.*`。
+- **类似(范式不同)**:`alloc`/`copy`/`subview`/`tile_*`/算术 → TA 较早的 buffer/`al`/`tl` 和较晚的 `tla.*`;custom_ops 的 gather/sort 仅部分或功能级对应。`workspace` 与 int4 专用转换无直接 TA API,不可强行比较首见。
+- **历史先后须分两种口径**:具体 `tla.*` 接口较晚,不等于 TA 此前没有相似能力;逐项日期、提交和对应边界见 [特性时间线 §3](feature-timeline-git.md#3-逐原语首见与先后对照)。
 - **TA 无对应**:TLE 的**流水调度器族**(`pipe_scheduler`/`pipe_reader/writer`)、**分布式通信族**(`device_mesh`/`remote`/`distributed_barrier`/`swizzle2d_Nz`)、以及 **Hopper SMEM/TMA 专属**(`local_ptr`/`smem`/`tmem`)—— 前两类是 TLE 相对 `tla` 的能力扩展,后一类是 GPU 专属不适用昇腾。
 
 ---

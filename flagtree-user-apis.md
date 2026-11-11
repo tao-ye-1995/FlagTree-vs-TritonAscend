@@ -9,7 +9,7 @@
 FlagTree 是 **多后端统一框架**(`third_party/` 下有 amd / nvidia / enflame / iluvatar / mthreads / xpu / tsingmicro / **ascend** / tle),昇腾只是其中一个后端。因此:
 - 没有在线 API 参考文档专门面向昇腾(不像 Triton-Ascend 有 readthedocs 的 6 页)。
 - 昇腾扩展通过 **`flagtree_spec`** 机制注入,而非专用 fork 的 monkey-patch。
-- 能复用 upstream 的部分(数学函数等)尽量 rebind,不重复实现 —— 接口暴露面更小。
+- 昇腾 cann 层(`al`/`libdevice`)**整体搬自 TA**(2026-06-08,基线 TA `c85527413` @ 2026-05-15),非逐特性自研;其"精简 + rebind"形态是 TA 当时的原貌,后续几乎零改动(见 [feature-timeline-git.md](feature-timeline-git.md))。
 
 ## 命名空间全景
 
@@ -72,9 +72,9 @@ TLE(**T**ensor-memory **L**anguage **E**xtension)是 FlagTree 在标准 `tl.*` �
 TLE 分三层:
 
 ### 1. 通用层(`tle.*` 顶层)—— 面向 GPU SMEM/TMA 为主
-- `tle.load`:带 `tt.load.async` 等属性的加载(Hopper 异步拷贝)。
+- `tle.language.load`:带 `tt.load.async` 等属性的加载(Hopper 异步拷贝);当前未顶层导出为 `tle.load`。
 - `tle.scope(core_mode="cube"|"vector")`:核模式作用域(`with tle.scope(...)`)。
-- `tle.tensor_view` / `tle.tensor_view_type` / `tle.make_partition_view` / `tle.make_strided_view` / `tle.make_gather_scatter_view`:张量视图构造。
+- `tle.language.tensor_view` / `tle.language.tensor_view_type` / `tle.make_partition_view` / `tle.make_strided_view` / `tle.make_gather_scatter_view`:张量视图构造;视图类型未顶层导出为 `tle.tensor_view`。
 - `tle.tile_load` / `tle.tile_store`:tile 级加载/存储。
 - `tle.pipe`(`capacity/scope/readers/one_shot`):流水管道原语。
 - `tle.local_ptr(buffer, indices)`(文档重点):从显式索引张量物化任意形状的 SMEM 指针视图(Hopper 专属,昇腾无 SMEM 概念)。
@@ -115,5 +115,5 @@ import triton.experimental.tle as tle                           # TLE 扩展原�
 
 ## 小结
 - FlagTree 昇腾用户 API ≈ Triton-Ascend **去掉 `tla`、去掉 `dot`/`conv2d` builtin、libdevice 精简**后的子集,**另加 TLE 扩展原语**(`triton.experimental.tle`)。
-- 设计取向:**多后端通用 + 昇腾精简接入**,复用 upstream 数学实现,接口面小;显式内存/流水编程由跨后端的 TLE 承担(对应 TA 的 `tla`)。
+- 来源:**cann 层不是 FlagTree 逐特性自研,而是 2026-06-08 从 TA 整体搬入**(基线 TA `c85527413` @ 2026-05-15),之后几乎零改动;"精简 + rebind"是 TA 当时的原貌,全量版是 TA 此后单独扩的(见 [feature-timeline-git.md](feature-timeline-git.md))。FlagTree 在 TLE 路线上继续演进,其中部分 Ascend 原语是 cann re-export/alias,普通 DSA、tile 与 custom-op 另有实现;不能把全部 TLE 统称原创自研。显式内存/流水编程由跨后端的 TLE 承担(对应 TA 的 `tla`);逐原语先后见 [时间线 §3](feature-timeline-git.md#3-逐原语首见与先后对照)。
 - 若需矩阵乘:用 `tl.dot`(经后端 lowering),而非 `al.dot` builtin。
